@@ -1,202 +1,86 @@
 from abc import ABC, abstractmethod
 from enum import Enum, auto
-import items as ci
-import pygame
+import pygame, items as ci
 
 
-class Color(Enum):
-
-    WHITE = auto()
-    BLACK = auto()
+class Color(Enum): WHITE, BLACK = auto(), auto()
 
 
 class Piece(ABC):
-    symbol: str = "?"
-    is_clicked = False
+    def __init__(self, pos, color, symbol, img_key):
+        self.pos, self.color, self.symbol, self.is_clicked = pos, color, symbol, False
+        self.img = pygame.transform.scale(getattr(ci, img_key), (70, 70))
 
-
-    def __init__(self, pos: str, color: Color) -> None:
-        self.pos: str = pos
-        self.color: Color = color
-
-    def __repr__(self) -> str:
-        return f"Piece: {self.symbol} {self.color}"
-
-    def square_in_board(self, target: str) -> bool:
-        letter, number = target[0], target[1]
-        if letter.isalpha() and number.isnumeric():
-            if letter in "abcdefgh" and number in "12345678":
-                return True
-        return False
+    @staticmethod
+    def in_board(t): return len(t) == 2 and t[0] in "abcdefgh" and t[1] in "12345678"
 
     @abstractmethod
-    def can_move(self, target: str) -> bool:
-        pass
+    def can_move(self, t): pass
 
 
 class Rook(Piece):
+    def __init__(self, p, c): super().__init__(p, c, "wR" if c == Color.WHITE else "bR",
+                                               "WHITE_ROOK" if c == Color.WHITE else "BLACK_ROOK")
 
-    has_castled = False
-
-    def __init__(self, pos: str, color: Color) -> None:
-        super().__init__(pos, color)
-        self.symbol = "wR" if self.color == Color.WHITE else "bR"
-        self.img = pygame.transform.scale(
-            ci.WHITE_ROOK if self.color == Color.WHITE else ci.BLACK_ROOK, (70, 70)
-        )
-
-    def can_move(self, target: str) -> bool:
-        if self.square_in_board(target):
-            if target[0] == self.pos[0] or target[1] == self.pos[1]:
-                return True
-        return False
+    def can_move(self, t): return self.in_board(t) and (t[0] == self.pos[0] or t[1] == self.pos[1])
 
 
 class Bishop(Piece):
-    def __init__(self, pos: str, color: Color) -> None:
-        super().__init__(pos, color)
-        self.symbol = "wB" if self.color == Color.WHITE else "bB"
-        self.img = pygame.transform.scale(
-            ci.WHITE_BISHOP if self.color == Color.WHITE else ci.BLACK_BISHOP, (70, 70)
-        )
+    def __init__(self, p, c): super().__init__(p, c, "wB" if c == Color.WHITE else "bB",
+                                               "WHITE_BISHOP" if c == Color.WHITE else "BLACK_BISHOP")
 
-    def can_move(self, target: str) -> bool:
-        if self.square_in_board(target):
-            if abs(ord(target[0]) - ord(self.pos[0])) == abs(
-                int(target[1]) - int(self.pos[1])
-            ):
-                return True
-        return False
+    def can_move(self, t): return self.in_board(t) and abs(ord(t[0]) - ord(self.pos[0])) == abs(
+        int(t[1]) - int(self.pos[1]))
 
 
 class Queen(Piece):
-    def __init__(self, pos: str, color: Color) -> None:
-        super().__init__(pos, color)
-        self.symbol = "wQ" if self.color == Color.WHITE else "bQ"
-        self.img = pygame.transform.scale(
-            ci.WHITE_QUEEN if self.color == Color.WHITE else ci.BLACK_QUEEN, (70, 70)
-        )
+    def __init__(self, p, c): super().__init__(p, c, "wQ" if c == Color.WHITE else "bQ",
+                                               "WHITE_QUEEN" if c == Color.WHITE else "BLACK_QUEEN")
 
-    def can_move(self, target: str) -> bool:
-        if self.square_in_board(target):
-            if target[0] == self.pos[0] or target[1] == self.pos[1]:
-                return True
-            elif abs(ord(target[0]) - ord(self.pos[0])) == abs(
-                int(target[1]) - int(self.pos[1])
-            ):
-                return True
-        return False
+    def can_move(self, t): return self.in_board(t) and (
+                t[0] == self.pos[0] or t[1] == self.pos[1] or abs(ord(t[0]) - ord(self.pos[0])) == abs(
+            int(t[1]) - int(self.pos[1])))
 
 
 class King(Piece):
+    def __init__(self, p, c): super().__init__(p, c, "wK" if c == Color.WHITE else "bK",
+                                               "WHITE_KING" if c == Color.WHITE else "BLACK_KING"); self.in_check = False
 
-    in_check = False
-    has_castled = True
-
-    def __init__(self, pos: str, color: Color) -> None:
-        super().__init__(pos, color)
-        self.symbol = "wK" if self.color == Color.WHITE else "bK"
-        self.img = pygame.transform.scale(
-            ci.WHITE_KING if self.color == Color.WHITE else ci.BLACK_KING, (70, 70)
-        )
-
-    def castle(self, target: str) -> bool:
-        if self.square_in_board(target):
-            if target[1] == self.pos[1] and abs(ord(target[0]) - ord(self.pos[0])) == 2:
-                return True
-        return False
-
-    def can_move(self, target: str) -> bool:
-        if self.square_in_board(target):
-            if (
-                abs(ord(target[0]) - ord(self.pos[0])) <= 1
-                and abs(int(target[1]) - int(self.pos[1])) <= 1
-            ):
-                return True
-            elif (
-                target[1] == self.pos[1]
-                and abs(ord(target[0]) - ord(self.pos[0])) == 2
-                and not self.has_castled
-                and not self.in_check
-                and self.pos[0] == "e"
-            ):
-                return True
-        return False
+    def can_move(self, t): return self.in_board(t) and abs(ord(t[0]) - ord(self.pos[0])) <= 1 and abs(
+        int(t[1]) - int(self.pos[1])) <= 1
 
 
 class Knight(Piece):
+    def __init__(self, p, c): super().__init__(p, c, "wN" if c == Color.WHITE else "bN",
+                                               "WHITE_KNIGHT" if c == Color.WHITE else "BLACK_KNIGHT")
 
-    def __init__(self, pos: str, color: Color) -> None:
-        super().__init__(pos, color)
-        self.symbol = "wN" if self.color == Color.WHITE else "bN"
-        self.img = pygame.transform.scale(
-            ci.WHITE_KNIGHT if self.color == Color.WHITE else ci.BLACK_KNIGHT, (70, 70)
-        )
-
-    def can_move(self, target: str) -> bool:
-        if self.square_in_board(target):
-            if (
-                abs(ord(target[0]) - ord(self.pos[0])) == 2
-                and abs(int(target[1]) - int(self.pos[1])) == 1
-            ):
-                return True
-            elif (
-                abs(ord(target[0]) - ord(self.pos[0])) == 1
-                and abs(int(target[1]) - int(self.pos[1])) == 2
-            ):
-                return True
-        return False
+    def can_move(self, t):
+        if not self.in_board(t): return False
+        dx, dy = abs(ord(t[0]) - ord(self.pos[0])), abs(int(t[1]) - int(self.pos[1]))
+        return (dx == 2 and dy == 1) or (dx == 1 and dy == 2)
 
 
 class Pawn(Piece):
+    def __init__(self, p, c):
+        super().__init__(p, c, "wP" if c == Color.WHITE else "bP",
+                         "WHITE_PAWN" if c == Color.WHITE else "BLACK_PAWN"); self.jump = False
 
-    jump = False  # If the pawn moves two squares, jump will be True
+    def can_promote(self, t):
+        return (self.color == Color.WHITE and t[1] == '8') or (self.color == Color.BLACK and t[1] == '1')
 
-    def __init__(self, pos: str, color: Color) -> None:
-        super().__init__(pos, color)
-        self.symbol = "wP" if self.color == Color.WHITE else "bP"
-        self.img = pygame.transform.scale(
-            ci.WHITE_PAWN if self.color == Color.WHITE else ci.BLACK_PAWN, (70, 70)
-        )
-
-    def move_diagonal(self, target: str, color: Color) -> bool:
-        if color == Color.WHITE:
-            if abs(ord(target[0]) - ord(self.pos[0])) == 1:
-                if int(target[1]) - int(self.pos[1]) == 1:
-                    return True
-        else:
-            if abs(ord(target[0]) - ord(self.pos[0])) == 1:
-                if int(target[1]) - int(self.pos[1]) == -1:
-                    return True
-        return False
-
-    def can_promote(self, target: str) -> bool:
+    def can_move(self, t):
+        if not self.in_board(t): return False
+        dx, dy = ord(t[0]) - ord(self.pos[0]), int(t[1]) - int(self.pos[1])
         if self.color == Color.WHITE:
-            if target[1] == "8":
+            if t[0] == self.pos[0]:
+                if dy == 1: return True
+                if dy == 2 and self.pos[1] == '2': self.jump = True; return True
+            elif abs(dx) == 1 and dy == 1:
                 return True
         else:
-            if target[1] == "1":
+            if t[0] == self.pos[0]:
+                if dy == -1: return True
+                if dy == -2 and self.pos[1] == '7': self.jump = True; return True
+            elif abs(dx) == 1 and dy == -1:
                 return True
-        return False
-
-    def can_move(self, target: str) -> bool:
-        if self.square_in_board(target):
-            if self.color == Color.WHITE:
-                if target[0] == self.pos[0]:
-                    if int(target[1]) - int(self.pos[1]) == 1:
-                        return True
-                    elif int(target[1]) - int(self.pos[1]) == 2 and self.pos[1] == "2":
-                        self.jump = True
-                        return True
-                else:
-                    return self.move_diagonal(target, self.color)  # Capture diagonally
-            elif self.color == Color.BLACK:
-                if target[0] == self.pos[0]:
-                    if int(target[1]) - int(self.pos[1]) == -1:
-                        return True
-                    elif int(target[1]) - int(self.pos[1]) == -2 and self.pos[1] == "7":
-                        self.jump = True
-                        return True
-                else:
-                    return self.move_diagonal(target, self.color)  # Capture diagonally
         return False
